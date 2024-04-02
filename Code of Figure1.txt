@@ -1,0 +1,141 @@
+
+
+#if (!require("BiocManager"))
+#    install.packages("BiocManager")
+#BiocManager::install("maftools")
+##preMaf <- read.table("D:/YYYwork/11.maftools/input.maf", sep="\t", header = T, stringsAsFactors = F,quote="")
+
+load("F:/LUADwork/10.mutDownload/maf.Rdata")
+#objects <- ls()
+
+
+
+preMaf <- snv_data@data
+
+
+setwd("F:\\LUADwork\\11.maftools")  
+
+library(maftools)
+
+
+#??ȡͻ???????ļ?
+geneRT=read.table("139-gene.txt", header=T, sep="\t", check.names=F, row.names=1)
+gene=row.names(geneRT)
+
+laml<-preMaf[preMaf$Hugo_Symbol %in% gene,]
+
+library(maftools)       #???ð?
+#???ù???Ŀ¼
+
+#?????ٲ?ͼ
+pdf(file="oncoplot.pdf", width=8, height=7.5)
+maf=read.maf(maf=laml)
+oncoplot(maf=maf, fontSize=0.5, draw_titv=T, top=10)
+dev.off()
+
+
+
+
+
+# 安装RCircos软件包（如果尚未安装）
+#install.packages("RCircos")
+
+# 加载RCircos库
+library("RCircos")
+
+# 设置工作目录
+setwd("F:\\LUADwork\\18.Rcircos")  # 根据你的系统，替换成相应的目录路径
+
+# 初始化环形图
+cytoBandIdeogram <- read.table("refer.txt", header = TRUE, sep = "\t") 
+# 从"refer.txt"文件中读取cytoBandIdeogram的数据，该文件包含染色体带的信息
+
+chr.exclude <- NULL  # 不排除任何染色体
+cyto.info <- cytoBandIdeogram  # 使用cytoBandIdeogram数据进行可视化
+
+tracks.inside <- 5  # 设置内部轨道数
+tracks.outside <- 0  # 设置外部轨道数
+
+# 设置RCircos绘图的核心组件
+RCircos.Set.Core.Components(cyto.info, chr.exclude, tracks.inside, tracks.outside)
+
+# 获取RCircos绘图的参数
+rcircos.params <- RCircos.Get.Plot.Parameters()
+
+# 调整文本大小和点的大小
+rcircos.params$text.size <- 0.6
+rcircos.params$point.size <- 5
+
+# 重置绘图参数
+RCircos.Reset.Plot.Parameters(rcircos.params)
+
+# 创建用于绘图输出的PDF文件
+pdf(file = "RCircos.pdf", width = 10, height = 10)
+
+# 设置RCircos的绘图区域
+RCircos.Set.Plot.Area()
+
+# 绘制染色体的Ideogram图像
+RCircos.Chromosome.Ideogram.Plot()
+
+# 从"Rcircos.scatter.LUAD.txt"文件中读取散点图数据
+RCircos.Scatter.Data <- read.table("Rcircos.scatter.LUAD.txt", header = TRUE, sep = "\t", check.names = FALSE)
+
+data.col <- 4  # 设置散点图中数据所在的列号
+track.num <- 1  # 设置散点图的轨道号
+side <- "in"  # 设置散点图的位置（内部）
+
+# 绘制散点图
+RCircos.Scatter.Plot(RCircos.Scatter.Data, data.col, track.num, side, by.fold = 0.1)
+
+# 从"Rcircos.geneLabel-LUAD.txt"文件中读取基因标签数据
+RCircos.Gene.Label.Data <- read.table("Rcircos.geneLabel-LUAD.txt", header = TRUE, sep = "\t", check.names = FALSE)
+
+name.col <- 4  # 设置基因名称所在的列号
+track.num <- 2  # 设置基因连接线绘制的轨道号
+side <- "in"  # 设置基因连接线的位置（内部）
+
+# 绘制基因连接线
+RCircos.Gene.Connector.Plot(RCircos.Gene.Label.Data, track.num, side)
+
+track.num <- 3  # 设置基因名称绘制的轨道号
+
+# 绘制基因名称
+RCircos.Gene.Name.Plot(RCircos.Gene.Label.Data, name.col, track.num, side)
+
+# 完成绘图，并关闭PDF文件
+dev.off()
+
+
+
+
+
+inputFile="cnvMatrix-LUAD.txt"     #?????ļ?
+setwd("F:\\LUADwork\\16.CNVfreq")      #???ù???Ŀ¼
+
+rt=read.table(inputFile, header=T, sep="\t", check.names=F, row.names=1)    #??ȡ?????ļ?
+GAIN=rowSums(rt> 0)         #??ȡ?????????ӵ???Ʒ??Ŀ
+LOSS=rowSums(rt< 0)         #??ȡ??????ȱʧ????Ʒ??Ŀ
+GAIN=GAIN/ncol(rt)*100      #???㿽???????ӵİٷ???
+LOSS=LOSS/ncol(rt)*100      #???㿽????ȱʧ?İٷ???
+data=cbind(GAIN, LOSS)
+data=data[order(data[,"GAIN"],decreasing = T),]
+
+#????ͼ??
+data.max = apply(data, 1, max)
+pdf(file="CNVfreq.pdf", width=15, height=5)
+cex=1.3
+par(cex.lab=cex, cex.axis=cex, font.axis=2, las=1, xpd=T)
+bar=barplot(data.max, col="grey80", border=NA,
+            xlab="", ylab="CNV.frequency(%)", space=1.5,
+            xaxt="n", ylim=c(0,1.2*max(data.max)))
+points(bar,data[,"GAIN"], pch=20, col=2, cex=3)
+points(bar,data[,"LOSS"], pch=20, col=3, cex=3)
+legend("top", legend=c('GAIN','LOSS'), col=2:3, pch=20, bty="n", cex=2, ncol=2)
+par(srt=45)
+text(bar, par('usr')[3]-0.2, rownames(data), adj=1, cex=0.8)
+dev.off()
+
+
+
+
