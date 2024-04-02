@@ -1,0 +1,260 @@
+
+
+#install.packages('e1071')
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("preprocessCore")
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("limma")
+
+
+library("limma")           #???ð?
+inputFile="LUAD_merged_FPKM.txt"      #?????????ļ?
+setwd("F:\\LUADwork1\\35.CIBERSORT")      #???ù???Ŀ¼
+
+#??ȡ?????ļ????????????ļ?????
+rt=read.table(inputFile, header=T, sep="\t", check.names=F)        #??ȡ?????ļ?
+rt=as.matrix(rt)
+rownames(rt)=rt[,1]
+exp=rt[,2:ncol(rt)]
+dimnames=list(rownames(exp),colnames(exp))
+data=matrix(as.numeric(as.matrix(exp)),nrow=nrow(exp),dimnames=dimnames)
+data=avereps(data)
+data=data[rowMeans(data)>0,]
+
+#?????????õ?????
+out=rbind(ID=colnames(data),data)
+write.table(out,file="uniq.symbol.txt",sep="\t",quote=F,col.names=F)
+
+#????CIBERSORT???õ?????ϸ???????Ľ???
+source("Anoikis35.CIBERSORT.R")
+results=CIBERSORT("ref.txt", "uniq.symbol.txt", perm=1000)
+
+
+
+
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("limma")
+
+#install.packages("ggpubr")
+#install.packages("pheatmap")
+#install.packages("vioplot")
+#install.packages("corrplot")
+
+
+#???冒?
+library(limma)
+library(pheatmap)
+library(ggpubr)
+library(vioplot)
+library(corrplot)
+
+immFile="CIBERSORT-Results.txt"     #????细???????慕????募?
+riskFile="risk.all.txt"             #?????募?
+setwd("F:\\LUADwork1\\36.immunePlot")     #???霉???目录
+
+#??取????细???????慕????募??????????萁???????
+immune=read.table(immFile, header=T, sep="\t", check.names=F, row.names=1)
+immune=immune[immune[,"P-value"]<0.05,]
+data=as.matrix(immune[,1:(ncol(immune)-3)])
+rownames(data)=gsub("(.*?)\\_(.*?)", "\\2", rownames(data))
+
+#??取?????募?
+risk=read.table(riskFile, header=T, sep="\t", check.names=F, row.names=1)
+lowSample=rownames(risk)[risk[,"risk"]=="low"]
+highSample=rownames(risk)[risk[,"risk"]=="high"]
+
+#?叩头???????????细????量
+lowSameSample=intersect(row.names(data), lowSample)
+highSameSample=intersect(row.names(data), highSample)
+data=t(data[c(lowSameSample,highSameSample),])
+conNum=length(lowSameSample)
+treatNum=length(highSameSample)
+
+##########??????状图##########
+pdf("barplot.pdf", width=25, height=12)
+col=rainbow(nrow(data),s=0.7,v=0.7)
+par(las=1,mar=c(8,5,4,16),mgp=c(3,0.1,0),cex.axis=1.5)
+a1=barplot(data,col=col,ylab="Relative Percent",xaxt="n",yaxt="n",cex.lab=1.8)
+a2=axis(2,tick=F,labels=F)
+axis(2,a2,paste0(a2*100,"%"))
+par(srt=0,xpd=T)
+rect(xleft = a1[1], ybottom = -0.01, xright = a1[conNum], ytop = -0.06,col="green")
+text(a1[conNum]/2,-0.035,"Low risk",cex=2)
+rect(xleft = a1[conNum], ybottom = -0.01, xright =a1[length(a1)] , ytop = -0.06,col="red")
+text((a1[length(a1)]+a1[conNum])/2,-0.035,"High risk",cex=2)
+ytick2 = cumsum(data[,ncol(data)])
+ytick1 = c(0,ytick2[-length(ytick2)])
+legend(par('usr')[2]*0.98,par('usr')[4],legend=rownames(data),col=col,pch=15,bty="n",cex=1.3)
+dev.off()
+
+##########??????????图??##########
+pdf(file="corHeatmap.pdf", width=11, height=11)
+par(oma=c(0.5,1,1,1.2))
+corData=t(data)
+corData=corData[,colMeans(corData)>0]
+M=cor(corData)
+corrplot(M,
+         order="hclust",          #????细??????????式
+         method = "color",        #图??展示????式
+         diag = TRUE,             #?欠?展示?越???
+         tl.col="black",          #??????色
+         addCoef.col = "black",   #????系??????????色
+         number.cex=0.75,         #????系????????小
+         col=colorRampPalette(c("blue", "white", "red"))(50))    #图?蔚???色,?????睾?色????????蓝色
+dev.off()
+
+##########????小????图##########
+rt=t(data)
+pdf("vioplot.pdf", height=8, width=12)
+par(las=1,mar=c(10,6,3,3))
+x=c(1:ncol(rt))
+y=c(1:ncol(rt))
+plot(x,y,
+     xlim=c(0,63), ylim=c(min(rt), max(rt)+0.02),
+     main="", xlab="", ylab="Fraction",
+     pch=21,
+     col="white",
+     xaxt="n")
+
+#??每??????细??循????????小????图???头???????色??示???叻????煤?色??示
+for(i in 1:ncol(rt)){
+	  if(sd(rt[1:conNum,i])==0){
+	    rt[1,i]=0.00001
+	  }
+	  if(sd(rt[(conNum+1):(conNum+treatNum),i])==0){
+	    rt[(conNum+1),i]=0.00001
+	  }
+	  lowData=rt[1:conNum,i]
+	  highData=rt[(conNum+1):(conNum+treatNum),i]
+	  vioplot(lowData,at=3*(i-1),lty=1,add = T,col = 'green')
+	  vioplot(highData,at=3*(i-1)+1,lty=1,add = T,col = 'red')
+	  wilcoxTest=wilcox.test(lowData, highData)
+	  p=wilcoxTest$p.value
+	  mx=max(c(lowData,highData))
+	  lines(c(x=3*(i-1)+0.2,x=3*(i-1)+0.8),c(mx,mx))
+	  text(x=3*(i-1)+0.5, y=mx+0.02, labels=ifelse(p<0.001, paste0("p<0.001"), paste0("p=",sprintf("%.03f",p))), cex = 0.8)
+}
+legend("topleft", 
+       c("Low risk", "High risk"),
+       lwd=3.5, bty="n", cex=1.2,
+       col=c("green","red"))
+text(seq(1,64,3),-0.05,xpd = NA,labels=colnames(rt),cex = 0.9,srt = 45,pos=2)
+dev.off()
+
+
+######Vi
+
+
+
+#install.packages("reshape2")
+#install.packages("ggpubr")
+
+
+#???ð?
+library(reshape2)
+library(ggpubr)
+
+riskFile="risk.all.txt"      #?????ļ?
+TMEfile="TMEscores.txt"      #????΢?????????ļ?
+setwd("F:\\LUADwork1\\39.estimateVioplot")      #???ù???Ŀ¼
+
+#??ȡ?????ļ?
+Risk=read.table(riskFile, header=T, sep="\t", check.names=F, row.names=1)
+Risk$risk=factor(Risk$risk, levels=c("low","high"))
+
+#??ȡ????΢?????????ļ?
+score=read.table(TMEfile, header=T, sep="\t", check.names=F, row.names=1)
+score=score[,1:3]
+rownames(score)=gsub("(.*?)\\_(.*?)", "\\2", rownames(score))
+score=score[row.names(Risk),,drop=F]
+
+#???ݺϲ?
+rt=cbind(Risk[,"risk",drop=F], score)
+
+#???ϲ?????????ת??Ϊggplot2???????ļ?
+data=melt(rt, id.vars=c("risk"))
+colnames(data)=c("Risk", "scoreType", "Score")
+
+#????С????ͼ
+p=ggviolin(data, x="scoreType", y="Score", fill = "Risk",
+	     xlab="",
+	     ylab="TME score",
+	     legend.title="Risk",
+	     add = "boxplot", add.params = list(color="white"),
+	     palette = c("#0088FF", "#FF5555"), width=1)
+p=p+rotate_x_text(45)
+p1=p+stat_compare_means(aes(group=Risk),
+	      method="wilcox.test",
+	      symnum.args=list(cutpoints = c(0, 0.001, 0.01, 0.05, 1), symbols = c("***", "**", "*", " ")),
+	      label = "p.signif")
+
+#????ͼ??
+pdf(file="vioplot1.pdf", width=6, height=5)
+print(p1)
+dev.off()
+
+
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#BiocManager::install("limma")
+
+#install.packages("ggplot2")
+#install.packages("ggpubr")
+
+
+#???ð?
+library(limma)
+library(plyr)
+library(ggplot2)
+library(ggpubr)
+
+tideFile="TIDE.csv"          #TIDE?Ĵ????ļ?
+riskFile="risk.all.txt"      #?????ļ?
+setwd("F:\\LUADwork1\\39.TIDE")     #???ù???Ŀ¼
+
+#??ȡTIDE????
+tide=read.csv(tideFile, header=T, sep=",", check.names=F, row.names=1)
+tide$Responder=ifelse(tide$Responder=="TRUE", "Responder", "Non-responder")
+
+
+#??ȡ?????????ļ?
+risk=read.table(riskFile, header=T, sep="\t", check.names=F, row.names=1)
+risk$risk=factor(risk$risk, levels=c("low", "high"))
+
+#?ϲ?????
+sameSample=intersect(row.names(tide), row.names(risk))
+tide=tide[sameSample, , drop=F]
+risk=risk[sameSample, "risk", drop=F]
+data=cbind(tide, risk)
+
+
+
+#ͳ?Ƹߵͷ????鲡????Ŀ
+rt1=data[,c("Responder", "risk")]
+df=as.data.frame(table(rt1))
+#?????ߵͷ??????İٷֱ?
+df=ddply(df, .(risk), transform, percent = Freq/sum(Freq) * 100)
+#?ٷֱ?λ??
+df=ddply(df, .(risk), transform, pos = (cumsum(Freq) - 0.5 * Freq))
+df$label=paste0(sprintf("%.0f", df$percent), "%")
+#???ưٷֱ???״ͼ
+p=ggplot(df, aes(x = factor(risk), y = percent, fill = Responder)) +
+	   geom_bar(position = position_stack(), stat = "identity", width = .7) +
+	   scale_fill_manual(values=c("blue","red"))+
+	   xlab("Risk score")+ ylab("Percent weight")+  guides(fill=guide_legend(title="Responder"))+
+	   geom_text(aes(label = label), position = position_stack(vjust = 0.5), size = 3) +
+	   #coord_flip()+
+	   theme_bw()
+pdf(file="barplot2.pdf", width=4, height=5)
+print(p)
+dev.off()
+
+
+

@@ -1,0 +1,145 @@
+
+
+#install.packages("survival")
+#install.packages("survminer")
+
+
+#???ð?
+library(survival)
+library(survminer)
+setwd("F:\\LUADwork1\\28.survival")      #???ù???Ŀ¼
+
+#?????????????ĺ???
+bioSurvival=function(inputFile=null, outFile=null){
+	#??ȡ?????ļ?
+	rt=read.table(inputFile, header=T, sep="\t", check.names=F)
+	rt$futime = rt$futime / 365
+	rt$risk=factor(rt$risk, levels=c("low", "high"))
+	#?Ƚϸߵͷ????????????죬?õ???????????pֵ
+	diff=survdiff(Surv(futime, fustat) ~risk,data = rt)
+	pValue=1-pchisq(diff$chisq,df=1)
+	if(pValue<0.001){
+		pValue="p<0.001"
+	}else{
+		pValue=paste0("p=",sprintf("%.03f",pValue))
+	}
+	fit <- survfit(Surv(futime, fustat) ~ risk, data = rt)
+		
+	#????????????
+	surPlot=ggsurvplot(fit, 
+		           data=rt,
+		           conf.int=F,
+		           pval=pValue,
+		           pval.size=6,
+		           legend.title="Risk",
+		           legend.labs=c("Low risk", "High risk"),
+		           xlab="Time(years)",
+		           break.time.by = 2,
+		           palette=c("#0088FF", "#FF5555"),
+		           risk.table=F,
+		       	   risk.table.title="",
+		           risk.table.col = "strata",
+		           risk.table.height=.25)
+	pdf(file=outFile, width=5, height=4.5, onefile=FALSE)
+	print(surPlot)
+	dev.off()
+}
+
+#???ú?????????????????
+bioSurvival(inputFile="RISKGSE50081.txt", outFile="RISKGSE50081.pdf")
+#bioSurvival(inputFile="RISKGSE42127.txt", outFile="RISKGSE42127.pdf")
+#bioSurvival(inputFile="RISKGSE72094.txt", outFile="RISKGSE72094.pdf")
+#bioSurvival(inputFile="preRISKGSE26899.txt", outFile="preRISKGSE26899.pdf")
+#bioSurvival(inputFile="preRISKGSE26253.txt", outFile="preRISKGSE26253.pdf")
+
+#bioSurvival(inputFile="preRISKTCGA.txt", outFile="preRISKTCGA.pdf")
+#bioSurvival(inputFile="preRISKGSE15459.txt", outFile="preRISKGSE15459.pdf")
+
+
+#install.packages("pheatmap")
+
+
+library(pheatmap)           #???ð?
+riskFile="risk.all.txt"     #?????ļ?
+setwd("F:\\LUADwork1\\31.riskHeatmap")      #???ù???Ŀ¼
+
+#??ȡ?????ļ?
+rt=read.table(riskFile, header=T, sep="\t", check.names=F, row.names=1)
+rt=rt[order(rt$riskScore),]      #???ݲ??˵ķ??յ÷ֶ???Ʒ????????
+
+#??????ͼע?͵???ɫ
+ann_colors=list()
+bioCol=c("#0088FF", "#FF5555")
+names(bioCol)=c("low", "high")
+ann_colors[["risk"]]=bioCol
+
+#???Ʒ?????ͼ
+rt1=rt[c(3:(ncol(rt)-2))]
+rt1=t(rt1)
+annotation=data.frame(risk=rt[,ncol(rt)])
+rownames(annotation)=rownames(rt)
+pdf(file="riskHeatmap-all.pdf", width=7, height=4)
+pheatmap(rt1, 
+		 annotation=annotation,
+		 annotation_colors = ann_colors, 
+		 cluster_cols = F,
+		 show_colnames = F,
+		 cluster_rows = T,
+		 color = colorRampPalette(c(rep("blue",3), "white", rep("red",3)))(50),
+		 scale="row",
+		 fontsize_col=8,
+		 fontsize=7,
+		 fontsize_row=8)
+dev.off()
+
+
+
+
+
+
+#install.packages("survival")
+#install.packages("survminer")
+#install.packages("timeROC")
+
+
+#???ð?
+library(survival)
+library(survminer)
+library(timeROC)
+setwd("F:\\LUADwork1\\29.ROC")      #???ù???Ŀ¼
+
+#????ROC???ߵĺ???
+bioROC=function(inputFile=null, rocFile=null){
+	#??ȡ?????ļ?
+	rt=read.table(inputFile, header=T, sep="\t", check.names=F)
+	rt$futime = rt$futime / 365
+	#??ȡROC???ߵĲ???
+	ROC_rt=timeROC(T=rt$futime,delta=rt$fustat,
+	               marker=rt$riskScore,cause=1,
+	               weighting='aalen',
+	               times=c(1,3,5),ROC=TRUE)
+	#????ROC????
+	pdf(file=rocFile, width=5, height=5)
+	plot(ROC_rt,time=1,col='green',title=FALSE,lwd=2)
+	plot(ROC_rt,time=3,col='blue',add=TRUE,title=FALSE,lwd=2)
+	plot(ROC_rt,time=5,col='red',add=TRUE,title=FALSE,lwd=2)
+	#????ͼ??
+	legend('bottomright',
+	        c(paste0('AUC at 1 years: ',sprintf("%.03f",ROC_rt$AUC[1])),
+	          paste0('AUC at 3 years: ',sprintf("%.03f",ROC_rt$AUC[2])),
+	          paste0('AUC at 5 years: ',sprintf("%.03f",ROC_rt$AUC[3]))),
+	        col=c("green",'blue','red'),lwd=2,bty = 'n')
+	dev.off()
+}
+
+#???ú???,????ROC????
+##bioROC(inputFile="risk.train.txt", rocFile="ROC.train.pdf")
+##bioROC(inputFile="risk.test.txt", rocFile="ROC.test.pdf")
+##bioROC(inputFile="risk.all.txt", rocFile="ROC.all.pdf")
+
+bioROC(inputFile="RISKGSE50081.txt", rocFile="ROC.RISKGSE50081.pdf")
+bioROC(inputFile="RISKGSE72094.txt", rocFile="ROC.RISKGSE72094.pdf")
+##bioROC(inputFile="RISKGSE84437.txt", rocFile="ROC.RISKGSE84437.pdf")
+
+
+
